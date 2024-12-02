@@ -1,0 +1,126 @@
+org: jorgeleonv
+service: proyecto-api-notas
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  memorySize: 1024
+  timeout: 29 # Reducido para cumplir con API Gateway
+  iam:
+    role: arn:aws:iam::831178165254:role/LabRole
+  environment:
+    TABLE_NAME: ${sls:stage}-t_notas # Nombre dinámico de la tabla DynamoDB
+
+functions:
+  CrearNota:
+    handler: CrearNota.handler
+    name: ${sls:stage}-CrearNota
+    events:
+      - http:
+          path: /notas/crear
+          method: post
+          cors: true
+          integration: lambda
+          request:
+            template:
+              application/json: |
+                {
+                  "method": "$context.httpMethod",
+                  "path": "$context.path",
+                  "headers": {
+                    "Authorization": "$input.params('Authorization')"
+                  },
+                  "body": $input.body
+                }
+
+  ConsultarNota:
+    handler: ConsultarNota.handler
+    name: ${sls:stage}-ConsultarNota
+    events:
+      - http:
+          path: /notas/consultar
+          method: post
+          cors: true
+          integration: lambda
+          request:
+            template:
+              application/json: |
+                {
+                  "method": "$context.httpMethod",
+                  "path": "$context.path",
+                  "headers": {
+                    "Authorization": "$input.params('Authorization')"
+                  },
+                  "body": $input.body
+                }
+
+  EliminarNota:
+    handler: EliminarNota.handler
+    name: ${sls:stage}-EliminarNota
+    events:
+      - http:
+          path: /notas/eliminar
+          method: delete
+          cors: true
+          integration: lambda
+          request:
+            template:
+              application/json: |
+                {
+                  "method": "$context.httpMethod",
+                  "path": "$context.path",
+                  "headers": {
+                    "Authorization": "$input.params('Authorization')"
+                  },
+                  "body": $input.body
+                }
+
+  NotasPorPeriodo:
+    handler: NotasPorPeriodo.handler
+    name: ${sls:stage}-NotasPorPeriodo
+    events:
+      - http:
+          path: /notas/periodo
+          method: post
+          cors: true
+          integration: lambda
+          request:
+            template:
+              application/json: |
+                {
+                  "method": "$context.httpMethod",
+                  "path": "$context.path",
+                  "headers": {
+                    "Authorization": "$input.params('Authorization')"
+                  },
+                  "body": $input.body
+                }
+
+resources:
+  Resources:
+    TablaNotas:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: TenantID#StudentID
+            AttributeType: S
+          - AttributeName: CourseID#Period
+            AttributeType: S
+          - AttributeName: Grade
+            AttributeType: N # El índice Grade debe ser numérico
+        KeySchema:
+          - AttributeName: TenantID#StudentID
+            KeyType: HASH
+          - AttributeName: CourseID#Period
+            KeyType: RANGE
+        LocalSecondaryIndexes:
+          - IndexName: GradeIndex
+            KeySchema:
+              - AttributeName: TenantID#StudentID
+                KeyType: HASH
+              - AttributeName: Grade
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+        BillingMode: PAY_PER_REQUEST # Facturación basada en uso
